@@ -1,56 +1,78 @@
 #include <iostream>
+#include <unistd.h>
 #include <cstring>
 #include <arpa/inet.h>
-#include <unistd.h>
+#include <netinet/in.h>
+#include <chrono>
+
+#include "client_manager.h"
+#include "utils.h"
 
 #define PORT 9000
-#define BUFFER_SIZE 1024
+#define MAXLINE 1024
 
 int main() {
     int sockfd;
-    char buffer[BUFFER_SIZE];
+    char buffer[MAXLINE];
     struct sockaddr_in servaddr, cliaddr;
 
-    // Create UDP socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket creation failed");
-        return 1;
+        exit(EXIT_FAILURE);
     }
 
     memset(&servaddr, 0, sizeof(servaddr));
     memset(&cliaddr, 0, sizeof(cliaddr));
 
-    // Fill server information
     servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = INADDR_ANY;  // 0.0.0.0
+    servaddr.sin_addr.s_addr = INADDR_ANY;
     servaddr.sin_port = htons(PORT);
 
-    // Bind the socket
     if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
         perror("bind failed");
-        close(sockfd);
-        return 1;
+        exit(EXIT_FAILURE);
     }
 
-    std::cout << "Server listening on port " << PORT << "...\n";
+    std::cout << "[START] UDP server running on port " << PORT << "\n";
+
+    ClientManager manager;
 
     while (true) {
         socklen_t len = sizeof(cliaddr);
-        int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *) &cliaddr, &len);
+        int n = recvfrom(sockfd, buffer, MAXLINE, 0, (struct sockaddr *)&cliaddr, &len);
         if (n < 0) {
             perror("recvfrom failed");
             continue;
         }
-
         buffer[n] = '\0';
-        char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &(cliaddr.sin_addr), client_ip, INET_ADDRSTRLEN);
-        int client_port = ntohs(cliaddr.sin_port);
 
-        std::cout << "[RECV] From " << client_ip << ":" << client_port << " -> " << buffer << "\n";
+        std::string msg(buffer);
+        std::string senderKey = manager.getClientKey(cliaddr);
+        auto now = std::chrono::steady_clock::now();
 
-        // Echo the message back
-        sendto(sockfd, buffer, n, 0, (const struct sockaddr *) &cliaddr, len);
+        if (msg == "HELLO") {
+            if (!manager.isKnown(senderKey)) {
+                int assignedId = manager.registerClient(cliaddr);
+                std::string response = "WELCOME:" + std::to_string(assignedId);
+                sendto(sockfd, response.c_str(), response.length(), 0,
+                       (const struct sockaddr *)&cliaddr, sizeof(cliaddr));
+                std::cout << "[HANDSHAKE] New client " << senderKey
+                          << " assigned ID " << assignedId << "\n";
+            } else {
+                std::cout << "[HANDSHAKE] Duplicate HELLO from " << senderKey << "\n";
+            }
+            continue;
+        }
+
+        if (!manager.isKnown(senderKey)) {
+            std::cout << "[DROP] Message from unknown client " << senderKey << ": " << msg << "\n";
+            continue;
+        }
+
+        Client &c = manager.getClient(senderKey);
+        c.last_seen = now;
+
+        sendto(sockfd, buffer, n, 0, (const struct sockaddr *)&cliaddr, sizeof(cliaddr));
     }
 
     close(sockfd);
