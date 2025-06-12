@@ -2,7 +2,7 @@ CXX = g++
 CXXFLAGS = -Wall -std=c++17
 
 CLIENT_SRC = client/client.cpp
-SERVER_SRC = server/server.cpp
+SERVER_SRC = server/server.cpp server/client_manager.cpp
 
 CLIENT_BIN = bin/client
 SERVER_BIN = bin/server
