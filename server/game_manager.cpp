@@ -40,8 +40,31 @@ std::optional<std::string> GameManager::handleMessage(
         }
     }
 
+    // PING:ID
+    // This is a keep-alive message to ensure the client is still connected during waiting state.
+    if (msg.rfind("PING:", 0) == 0) {
+        int id;
+        if (!this->clientManager.parsePingMessage(msg, id)) {
+            std::cout << "[WARN] Malformed PING from " << ip_port << ": " << msg << std::endl;
+            return std::nullopt; // Ignore malformed pings
+        }
+
+        // Only accept from registered clients
+        if (!clientManager.validateClient(id, ip_port)) {
+            std::cout << "[WARN] Rejected PING from invalid client ID: " << id << "\n";
+            return std::nullopt;
+        }
+
+        clientManager.markSeen(ip_port); // <-- you’ll need to add this method
+        return std::nullopt;
+    }
+
+
     // UPDATE:x,y
     if (msg.rfind("UPDATE:", 0) == 0) {
+        if (state != GameState::STARTED) {
+            return std::nullopt; // Ignore updates if game not started
+        }
         int id, x, y;
         if (this->clientManager.parseUpdateMessage(msg, id, x, y)) {
             if (this->clientManager.validateClient(id, ip_port)) {
@@ -74,17 +97,32 @@ void GameManager::update() {
         }
         return;
     }
-    // --- Step 3: Handle client drop below minimum required ---
+
+    // --- Step 3: If no players, stay in WAITING and reset timer ---
     if (current_players < MIN_PLAYERS) {
-        if (lastLoggedState != GameState::WAITING) {
-            std::cout << "[WARN] No players connected, cannot start game." << std::endl;
+        if (state != GameState::WAITING) {
+            std::cout << "[INFO] Dropped below minimum players. Returning to WAITING." << std::endl;
             state = GameState::WAITING;
-            startTime = std::chrono::steady_clock::now();
-            lastLoggedState = GameState::WAITING;
+            lastLoggedState = state;
         }
+
+        // Reset the wait timer ONLY if no players are online
+        if (current_players == 0) {
+            startTime = std::chrono::steady_clock::now();
+        }
+
         return;
     }
-    // --- Step 4: If game already started, skip transition ---
+
+    // --- Step 4: Handle transition from STARTED to ENDED if players drop mid-game ---
+    if (state == GameState::STARTED && current_players < MIN_PLAYERS) {
+        std::cout << "[WARN] Not enough players. Ending game." << std::endl;
+        state = GameState::ENDED;
+        lastLoggedState = state;
+        return;
+    }
+
+    // --- Step 5: If already started, no further checks needed ---
     if (state == GameState::STARTED) {
         if (lastLoggedState != state) {
             std::cout << "[INFO] Game is already running." << std::endl;
@@ -92,7 +130,8 @@ void GameManager::update() {
         }
         return;
     }
-    // --- Step 5: Check if waiting period is over or max players reached ---
+
+    // --- Step 6: Check if we can now start the game ---
     auto now = std::chrono::steady_clock::now();
     int elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
 
