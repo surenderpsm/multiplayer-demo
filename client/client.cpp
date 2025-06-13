@@ -1,52 +1,66 @@
 #include <iostream>
+#include <string>
 #include <cstring>
-#include <arpa/inet.h>
 #include <unistd.h>
-#include <chrono>
+#include <arpa/inet.h>
 #include <thread>
-#include <cstdlib>
+#include <chrono>
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 9000
-#define BUFFER_SIZE 1024
 
 int main() {
     int sockfd;
-    char buffer[BUFFER_SIZE];
-    struct sockaddr_in servaddr;
+    sockaddr_in servaddr{}, recvaddr{};
+    socklen_t addr_len = sizeof(recvaddr);
+    char buffer[1024];
 
-    // Create socket
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket creation failed");
         return 1;
     }
 
-    memset(&servaddr, 0, sizeof(servaddr));
-
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &servaddr.sin_addr);
 
-    std::cout << "Client sending to " << SERVER_IP << ":" << SERVER_PORT << "...\n";
+    // Step 1: Send HELLO
+    std::string hello = "HELLO";
+    sendto(sockfd, hello.c_str(), hello.size(), 0, (const sockaddr*)&servaddr, sizeof(servaddr));
 
+    // Step 2: Wait for WELCOME response
+    ssize_t n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&recvaddr, &addr_len);
+    if (n <= 0) {
+        std::cerr << "No response from server\n";
+        return 1;
+    }
+    buffer[n] = '\0';
+    std::string response(buffer);
+    std::cout << "[RECV] " << response << "\n";
+
+    int client_id = -1;
+    if (response.rfind("WELCOME:", 0) == 0) {
+        client_id = std::stoi(response.substr(8));
+    } else {
+        std::cerr << "Unexpected handshake response\n";
+        return 1;
+    }
+
+    // Step 3: Periodically send updates
+    int x = 0, y = 0;
     while (true) {
-        // Generate dummy position
-        int x = rand() % 100;
-        int y = rand() % 100;
-        std::string msg = "POS " + std::to_string(x) + "," + std::to_string(y);
+        std::string update = "UPDATE:" + std::to_string(client_id) + ":" + std::to_string(x) + ":" + std::to_string(y);
+        sendto(sockfd, update.c_str(), update.size(), 0, (const sockaddr*)&servaddr, sizeof(servaddr));
 
-        // Send position
-        sendto(sockfd, msg.c_str(), msg.size(), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
-        std::cout << "[SEND] " << msg << "\n";
-
-        // Receive echo
-        socklen_t len = sizeof(servaddr);
-        int n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (struct sockaddr *) &servaddr, &len);
-        if (n > 0) {
-            buffer[n] = '\0';
-            std::cout << "[ECHO] " << buffer << "\n";
+        // Listen for state packet
+        ssize_t r = recvfrom(sockfd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT, (sockaddr*)&recvaddr, &addr_len);
+        if (r > 0) {
+            buffer[r] = '\0';
+            std::cout << "[STATE] " << buffer << "\n";
         }
 
+        x += 5;
+        y += 5;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
