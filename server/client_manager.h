@@ -118,6 +118,11 @@ public:
      */
     bool isCollisionFree(int x, int y, int my_id, int min_distance = 1) const;
 
+    void setBlocked(int id, bool status);
+
+    std::unordered_map<std::string, Client>& getClientsMutable();
+
+
 private:
     std::unordered_map<std::string, Client> clients; ///< Map from IP:Port to client struct.
     int nextClientId = 1; ///< Auto-incremented client ID generator.

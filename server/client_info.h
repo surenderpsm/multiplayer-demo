@@ -39,6 +39,8 @@ struct Client {
     int x = 0;
     int y = 0;
 
+    bool blocked = false;  ///< Indicates if the client is currently blocked (e.g., due to collision)
+
     /**
      * @brief Timestamp of the last received packet from this client.
      *

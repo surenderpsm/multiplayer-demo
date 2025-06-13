@@ -82,6 +82,20 @@ bool ClientManager::isCollisionFree(int x, int y, int my_id, int min_distance) c
 }
 
 
+void ClientManager::setBlocked(int id, bool status) {
+    for (auto& [_, client] : clients) {
+        if (client.id == id) {
+            client.blocked = status;
+            break;
+        }
+    }
+}
+
+std::unordered_map<std::string, Client>& ClientManager::getClientsMutable() {
+    return clients;
+}
+
+
 
 
 void ClientManager::pruneInactiveClients() {

@@ -52,8 +52,10 @@ void GameManager::handleProtobufMessage(const Packet& packet, const sockaddr_in&
         if (clientManager.validateClient(id, ip_port)) {
             if (clientManager.isCollisionFree(x, y, id, 50)) {
                 clientManager.updateClientPosition(id, x, y);
+                clientManager.setBlocked(id, false);
                 std::cout << "[UPDATE] ID=" << id << " → (" << x << "," << y << ")\n";
             } else {
+                clientManager.setBlocked(id, true);
                 std::cout << "[BLOCKED] ID=" << id << " attempted to move too close to another player\n";
             }
         } else {
@@ -69,6 +71,9 @@ void GameManager::handleProtobufMessage(const Packet& packet, const sockaddr_in&
 
 void GameManager::update() {
     tickCounter++;
+    for (auto& [_, client] : clientManager.getClientsMutable()) {
+        client.blocked = false;
+    }
     // --- Step 1: Prune inactive clients and count current ones ---
     clientManager.pruneInactiveClients();
     int current_players = clientManager.getClientCount();
@@ -141,6 +146,7 @@ void GameManager::broadcastToAll(int sockfd) {
         p->set_id(client.id);
         p->set_x(client.x);
         p->set_y(client.y);
+        p->set_blocked(client.blocked);
     }
 
 
