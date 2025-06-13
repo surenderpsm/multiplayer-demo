@@ -230,6 +230,7 @@ class Player final :
     kIdFieldNumber = 1,
     kXFieldNumber = 2,
     kYFieldNumber = 3,
+    kBlockedFieldNumber = 4,
   };
   // int32 id = 1;
   void clear_id();
@@ -258,6 +259,15 @@ class Player final :
   void _internal_set_y(int32_t value);
   public:
 
+  // bool blocked = 4;
+  void clear_blocked();
+  bool blocked() const;
+  void set_blocked(bool value);
+  private:
+  bool _internal_blocked() const;
+  void _internal_set_blocked(bool value);
+  public:
+
   // @@protoc_insertion_point(class_scope:Player)
  private:
   class _Internal;
@@ -269,6 +279,7 @@ class Player final :
     int32_t id_;
     int32_t x_;
     int32_t y_;
+    bool blocked_;
     mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
   };
   union { Impl_ _impl_; };
@@ -1368,6 +1379,26 @@ inline void Player::_internal_set_y(int32_t value) {
 inline void Player::set_y(int32_t value) {
   _internal_set_y(value);
   // @@protoc_insertion_point(field_set:Player.y)
+}
+
+// bool blocked = 4;
+inline void Player::clear_blocked() {
+  _impl_.blocked_ = false;
+}
+inline bool Player::_internal_blocked() const {
+  return _impl_.blocked_;
+}
+inline bool Player::blocked() const {
+  // @@protoc_insertion_point(field_get:Player.blocked)
+  return _internal_blocked();
+}
+inline void Player::_internal_set_blocked(bool value) {
+  
+  _impl_.blocked_ = value;
+}
+inline void Player::set_blocked(bool value) {
+  _internal_set_blocked(value);
+  // @@protoc_insertion_point(field_set:Player.blocked)
 }
 
 // -------------------------------------------------------------------

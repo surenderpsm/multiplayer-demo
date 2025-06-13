@@ -25,6 +25,7 @@ PROTOBUF_CONSTEXPR Player::Player(
     /*decltype(_impl_.id_)*/0
   , /*decltype(_impl_.x_)*/0
   , /*decltype(_impl_.y_)*/0
+  , /*decltype(_impl_.blocked_)*/false
   , /*decltype(_impl_._cached_size_)*/{}} {}
 struct PlayerDefaultTypeInternal {
   PROTOBUF_CONSTEXPR PlayerDefaultTypeInternal()
@@ -130,6 +131,7 @@ const uint32_t TableStruct_game_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(pro
   PROTOBUF_FIELD_OFFSET(::Player, _impl_.id_),
   PROTOBUF_FIELD_OFFSET(::Player, _impl_.x_),
   PROTOBUF_FIELD_OFFSET(::Player, _impl_.y_),
+  PROTOBUF_FIELD_OFFSET(::Player, _impl_.blocked_),
   ~0u,  // no _has_bits_
   PROTOBUF_FIELD_OFFSET(::Hello, _internal_metadata_),
   ~0u,  // no _extensions_
@@ -183,12 +185,12 @@ const uint32_t TableStruct_game_2eproto::offsets[] PROTOBUF_SECTION_VARIABLE(pro
 };
 static const ::_pbi::MigrationSchema schemas[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) = {
   { 0, -1, -1, sizeof(::Player)},
-  { 9, -1, -1, sizeof(::Hello)},
-  { 15, -1, -1, sizeof(::Ping)},
-  { 22, -1, -1, sizeof(::ClientUpdate)},
-  { 31, -1, -1, sizeof(::Welcome)},
-  { 38, -1, -1, sizeof(::StatePacket)},
-  { 47, -1, -1, sizeof(::Packet)},
+  { 10, -1, -1, sizeof(::Hello)},
+  { 16, -1, -1, sizeof(::Ping)},
+  { 23, -1, -1, sizeof(::ClientUpdate)},
+  { 32, -1, -1, sizeof(::Welcome)},
+  { 39, -1, -1, sizeof(::StatePacket)},
+  { 48, -1, -1, sizeof(::Packet)},
 };
 
 static const ::_pb::Message* const file_default_instances[] = {
@@ -202,23 +204,23 @@ static const ::_pb::Message* const file_default_instances[] = {
 };
 
 const char descriptor_table_protodef_game_2eproto[] PROTOBUF_SECTION_VARIABLE(protodesc_cold) =
-  "\n\ngame.proto\"*\n\006Player\022\n\n\002id\030\001 \001(\005\022\t\n\001x\030"
-  "\002 \001(\005\022\t\n\001y\030\003 \001(\005\"\007\n\005Hello\"\022\n\004Ping\022\n\n\002id\030"
-  "\001 \001(\005\"0\n\014ClientUpdate\022\n\n\002id\030\001 \001(\005\022\t\n\001x\030\002"
-  " \001(\005\022\t\n\001y\030\003 \001(\005\"\025\n\007Welcome\022\n\n\002id\030\001 \001(\005\"P"
-  "\n\013StatePacket\022\031\n\005state\030\001 \001(\0162\n.GameState"
-  "\022\014\n\004tick\030\002 \001(\005\022\030\n\007players\030\003 \003(\0132\007.Player"
-  "\"\256\001\n\006Packet\022\027\n\005hello\030\001 \001(\0132\006.HelloH\000\022\025\n\004"
-  "ping\030\002 \001(\0132\005.PingH\000\022&\n\rclient_update\030\003 \001"
-  "(\0132\r.ClientUpdateH\000\022\033\n\007welcome\030\004 \001(\0132\010.W"
-  "elcomeH\000\022$\n\014state_packet\030\005 \001(\0132\014.StatePa"
-  "cketH\000B\t\n\007payload*=\n\tGameState\022\013\n\007UNKNOW"
-  "N\020\000\022\013\n\007WAITING\020\001\022\013\n\007STARTED\020\002\022\t\n\005ENDED\020\003"
-  "b\006proto3"
+  "\n\ngame.proto\";\n\006Player\022\n\n\002id\030\001 \001(\005\022\t\n\001x\030"
+  "\002 \001(\005\022\t\n\001y\030\003 \001(\005\022\017\n\007blocked\030\004 \001(\010\"\007\n\005Hel"
+  "lo\"\022\n\004Ping\022\n\n\002id\030\001 \001(\005\"0\n\014ClientUpdate\022\n"
+  "\n\002id\030\001 \001(\005\022\t\n\001x\030\002 \001(\005\022\t\n\001y\030\003 \001(\005\"\025\n\007Welc"
+  "ome\022\n\n\002id\030\001 \001(\005\"P\n\013StatePacket\022\031\n\005state\030"
+  "\001 \001(\0162\n.GameState\022\014\n\004tick\030\002 \001(\005\022\030\n\007playe"
+  "rs\030\003 \003(\0132\007.Player\"\256\001\n\006Packet\022\027\n\005hello\030\001 "
+  "\001(\0132\006.HelloH\000\022\025\n\004ping\030\002 \001(\0132\005.PingH\000\022&\n\r"
+  "client_update\030\003 \001(\0132\r.ClientUpdateH\000\022\033\n\007"
+  "welcome\030\004 \001(\0132\010.WelcomeH\000\022$\n\014state_packe"
+  "t\030\005 \001(\0132\014.StatePacketH\000B\t\n\007payload*=\n\tGa"
+  "meState\022\013\n\007UNKNOWN\020\000\022\013\n\007WAITING\020\001\022\013\n\007STA"
+  "RTED\020\002\022\t\n\005ENDED\020\003b\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_game_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_game_2eproto = {
-    false, false, 488, descriptor_table_protodef_game_2eproto,
+    false, false, 505, descriptor_table_protodef_game_2eproto,
     "game.proto",
     &descriptor_table_game_2eproto_once, nullptr, 0, 7,
     schemas, file_default_instances, TableStruct_game_2eproto::offsets,
@@ -267,12 +269,13 @@ Player::Player(const Player& from)
       decltype(_impl_.id_){}
     , decltype(_impl_.x_){}
     , decltype(_impl_.y_){}
+    , decltype(_impl_.blocked_){}
     , /*decltype(_impl_._cached_size_)*/{}};
 
   _internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
   ::memcpy(&_impl_.id_, &from._impl_.id_,
-    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.y_) -
-    reinterpret_cast<char*>(&_impl_.id_)) + sizeof(_impl_.y_));
+    static_cast<size_t>(reinterpret_cast<char*>(&_impl_.blocked_) -
+    reinterpret_cast<char*>(&_impl_.id_)) + sizeof(_impl_.blocked_));
   // @@protoc_insertion_point(copy_constructor:Player)
 }
 
@@ -284,6 +287,7 @@ inline void Player::SharedCtor(
       decltype(_impl_.id_){0}
     , decltype(_impl_.x_){0}
     , decltype(_impl_.y_){0}
+    , decltype(_impl_.blocked_){false}
     , /*decltype(_impl_._cached_size_)*/{}
   };
 }
@@ -312,8 +316,8 @@ void Player::Clear() {
   (void) cached_has_bits;
 
   ::memset(&_impl_.id_, 0, static_cast<size_t>(
-      reinterpret_cast<char*>(&_impl_.y_) -
-      reinterpret_cast<char*>(&_impl_.id_)) + sizeof(_impl_.y_));
+      reinterpret_cast<char*>(&_impl_.blocked_) -
+      reinterpret_cast<char*>(&_impl_.id_)) + sizeof(_impl_.blocked_));
   _internal_metadata_.Clear<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>();
 }
 
@@ -343,6 +347,14 @@ const char* Player::_InternalParse(const char* ptr, ::_pbi::ParseContext* ctx) {
       case 3:
         if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 24)) {
           _impl_.y_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint32(&ptr);
+          CHK_(ptr);
+        } else
+          goto handle_unusual;
+        continue;
+      // bool blocked = 4;
+      case 4:
+        if (PROTOBUF_PREDICT_TRUE(static_cast<uint8_t>(tag) == 32)) {
+          _impl_.blocked_ = ::PROTOBUF_NAMESPACE_ID::internal::ReadVarint64(&ptr);
           CHK_(ptr);
         } else
           goto handle_unusual;
@@ -394,6 +406,12 @@ uint8_t* Player::_InternalSerialize(
     target = ::_pbi::WireFormatLite::WriteInt32ToArray(3, this->_internal_y(), target);
   }
 
+  // bool blocked = 4;
+  if (this->_internal_blocked() != 0) {
+    target = stream->EnsureSpace(target);
+    target = ::_pbi::WireFormatLite::WriteBoolToArray(4, this->_internal_blocked(), target);
+  }
+
   if (PROTOBUF_PREDICT_FALSE(_internal_metadata_.have_unknown_fields())) {
     target = ::_pbi::WireFormat::InternalSerializeUnknownFieldsToArray(
         _internal_metadata_.unknown_fields<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(::PROTOBUF_NAMESPACE_ID::UnknownFieldSet::default_instance), target, stream);
@@ -425,6 +443,11 @@ size_t Player::ByteSizeLong() const {
     total_size += ::_pbi::WireFormatLite::Int32SizePlusOne(this->_internal_y());
   }
 
+  // bool blocked = 4;
+  if (this->_internal_blocked() != 0) {
+    total_size += 1 + 1;
+  }
+
   return MaybeComputeUnknownFieldsSize(total_size, &_impl_._cached_size_);
 }
 
@@ -452,6 +475,9 @@ void Player::MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBU
   if (from._internal_y() != 0) {
     _this->_internal_set_y(from._internal_y());
   }
+  if (from._internal_blocked() != 0) {
+    _this->_internal_set_blocked(from._internal_blocked());
+  }
   _this->_internal_metadata_.MergeFrom<::PROTOBUF_NAMESPACE_ID::UnknownFieldSet>(from._internal_metadata_);
 }
 
@@ -470,8 +496,8 @@ void Player::InternalSwap(Player* other) {
   using std::swap;
   _internal_metadata_.InternalSwap(&other->_internal_metadata_);
   ::PROTOBUF_NAMESPACE_ID::internal::memswap<
-      PROTOBUF_FIELD_OFFSET(Player, _impl_.y_)
-      + sizeof(Player::_impl_.y_)
+      PROTOBUF_FIELD_OFFSET(Player, _impl_.blocked_)
+      + sizeof(Player::_impl_.blocked_)
       - PROTOBUF_FIELD_OFFSET(Player, _impl_.id_)>(
           reinterpret_cast<char*>(&_impl_.id_),
           reinterpret_cast<char*>(&other->_impl_.id_));
