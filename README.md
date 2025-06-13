@@ -1,195 +1,86 @@
-# Multiplayer State Sync Demo (C++ / UDP)
+# Multiplayer UDP Game Simulation and Stress Testing
 
-This is a server-authoritative multiplayer simulation demo built in C++ using raw UDP sockets. The goal is to explore real-time state synchronization between multiple clients and a centralized server, handling latency, packet loss, and stress conditions.
+## Overview
 
-## 🚩 Key Components
+This project simulates a real-time multiplayer game server using UDP sockets, focusing on network state synchronization, packet handling, and performance under high concurrency. A custom protocol enables clients to join, exchange position updates, and receive periodic world state broadcasts tagged with a server-side tick. The project includes a stress test framework that simulates up to 1000 clients to analyze packet loss and message throughput.
 
-### 🔹 **Server** (`server/server.cpp`)
-- Opens a UDP socket on port `9000`.
-- Uses `GameManager` to:
-  - Process incoming messages
-  - Broadcast game state every 100 ms
-- Main loop:
-  - Receives packets with `recvfrom()`
-  - Passes messages to `GameManager::handleMessage()`
-  - Sends responses if needed
+The implementation is optimized for clarity and performance, using multithreading to handle concurrent client updates and regular broadcasts.
 
----
+## Architecture
 
-### 🔸 **GameManager** (`server/game_manager.{h,cpp}`)
-- Manages game lifecycle:  
-  `UNKNOWN → WAITING → STARTED → ENDED`
-- Handles:
-  - `HELLO` handshake  
-  - `PING` keep-alive  
-  - `UPDATE` position messages
-- Delegates to `ClientManager` for:
-  - Client tracking
-  - ID validation
-  - Position updates
-  - Inactivity pruning
-- Periodically checks to:
-  - Start game (when player count or wait time condition is met)
-  - End game (if player count drops below minimum)
+* **Language**: C++ for the server, Python for the stress test clients.
+* **Transport Protocol**: UDP (no built-in reliability, packet ordering, or retransmission).
+* **Server**:
 
----
+  * Listens for client connections on port 9000.
+  * Handles initial handshakes via `HELLO` / `WELCOME:<id>`.
+  * Maintains a tick counter, incremented every 100ms.
+  * Broadcasts current game state to all clients on every tick (via `GAME:STATE:TICK=<n>`).
+* **Client (Stress Test)**:
 
-### 🧱 **ClientManager** (`server/client_manager.{h,cpp}`)
-- Maintains a map of connected clients (keyed by IP:port)
-- Handles:
-  - `UPDATE:<id>:<x>:<y>` — validates and updates position
-  - `PING:<id>` — updates last seen timestamp
-- Broadcasts combined game state:  
-  ```
-  STATE:<id1>:<x1>:<y1>|<id2>:<x2>:<y2>|...
-  ```
-- Removes clients inactive for more than `CLIENT_TIMEOUT_MS` (default: 5000 ms)
+  * Spawns multiple threads simulating different clients.
+  * Each client sends position updates every 100ms and listens for `GAME:STATE` messages.
+  * Tracks tick coverage to compute packet loss.
 
----
+## Features Implemented
 
-### 📽️ **Client** (`client/client.cpp`)
-- Sends `HELLO` to register with server
-- Receives `WELCOME:<id>` and stores assigned ID
-- Listens for game state via `GAME:<state>|STATE:...`
-- Behaviour:
-  - During `STARTED`: sends `UPDATE` messages every 100 ms
-  - During `WAITING`: sends `PING` keep-alives every 100 ms
+* Stateless UDP handshake and ID assignment.
+* Tick-based simulation loop (100ms interval).
+* Server broadcasts include a tick tag to measure delivery accuracy.
+* Multithreaded stress test clients with loss detection metrics.
+* Command-line configuration for test duration and client count.
+
+## Problem Statement
+
+The goal is to benchmark a basic real-time UDP multiplayer server's ability to handle high player loads (100+ concurrent clients) and measure packet reliability in absence of TCP-style guarantees. The stress test evaluates how many state update packets are lost under various loads and MTU constraints.
+
+
+## 📊 Network Performance Graphs
+
+### 1. Packet Loss vs Client Count
+
+![Packet Loss Graph](graphs/candlestick_packet_loss.png)
+
+This chart visualizes the relationship between client concurrency and packet loss during server broadcasts. Each red bar represents the *mean packet loss* across all clients for a given client count, and the black whiskers indicate the *minimum and maximum loss observed*.
+
+- *Below 800 clients*: Packet loss is negligible (≈ 0%).
+- *Between 900–1000 clients*: Loss increases modestly, indicating UDP limits under stress.
+- *1050+ clients*: Some clients experience >30% loss, suggesting socket buffer saturation or exceeding the network interface's capacity to handle large concurrent sends.
 
 ---
 
-### ⚙️ **Configuration** (`common/config.h`)
-- Central config file for tuning game constants:
-  - `MIN_PLAYERS` — minimum to start game
-  - `MAX_PLAYERS` — maximum allowed
-  - `WAIT_TIME_SEC` — countdown before starting
-  - `CLIENT_TIMEOUT_MS` — time to drop inactive clients
+### 2. Broadcast Packet Size vs Client Count
 
----
+![Packet Size Graph](graphs/candlestick_packet_size_naive.png)
 
-### 🧪 **Testing Scripts** (`test/`)
-- Python scripts for:
-  - Handshake-only client
-  - Spoofing invalid `UPDATE` packets
-  - Stress-testing with multiple fake clients
+This plot shows how the *average packet size (in bytes)* increases as the number of connected clients grows, due to naive string-based serialization of player state.
 
+- Packets approach and exceed *4000 bytes* around 800–900 clients.
+- Beyond 1000 clients, most packets likely exceed the typical UDP MTU (~1472 bytes for IPv4 over Ethernet), causing fragmentation and potential loss.
 
-## Repository Overview
+> 🧠 *Insight: The server does not experience logic bottlenecks, but suffers from **UDP's lack of flow control and the OS's limited buffer size*. The tests show the tipping point for UDP saturation under naive payload growth.
 
-### Phase 1: Core network scaffold
-- Basic UDP server that listens on port `9000`
-- UDP client that sends random `(x, y)` position every 100ms
-- Echo loop: server receives and sends back message
-- Client logs sent and received positions
-```
-                  +-------------------+
-                  |     Server        |
-                  |   (server.cpp)    |
-                  +---------+---------+
-                            ^
-                            |
-      +---------------------+---------------------+
-      |                     |                     |
-+-------------+     +-------------+       +-------------+
-|  Client A   |     |  Client B   |  ...  |  Client N   |
-| (client.cpp)|     | (client.cpp)|       | (client.cpp)|
-+-------------+     +-------------+       +-------------+
+## Future Work
 
-Each client sends position updates to the server every 100ms.
-The server echoes received positions back to each client.
-Planned expansion: rebroadcast all player states to all clients.
+* Implement reliable delivery via selective retransmission.
+* Protobuf serialization for compact, consistent packet structures.
+* Add basic gameplay: health, shooting, and kill logic.
+* Implement congestion control or adaptive tick intervals.
+* Optional: Replace Python clients with C++ ones for tighter integration and performance.
+
+## How to Run
+
+### Server:
+
+```bash
+cd server
+make
+./server
 ```
 
-### Phase 2: Client Management and State Broadcast
+### Stress Test:
 
-#### 2.1 Client Registration (Handshake)
-- Clients initiate connection with a "HELLO" message.
-- Server responds with a "WELCOME:<id>" message assigning a unique client ID.
-- Clients are tracked internally by their IP:Port and assigned ID.
-
-#### 2.2 Position Updates and Broadcast
-- Registered clients periodically send position updates in the format:  
-  `"UPDATE:<id>:<x>:<y>"`
-- The server validates the sender using their IP:Port and assigned ID.
-- Every 100ms, the server broadcasts the global state of all active clients in the format:  
-  `"STATE:<id1>:<x1>:<y1>|<id2>:<x2>:<y2>|..."`
-
-#### 🔐 Packet Validation
-- The server discards updates from unregistered clients or mismatched IDs to prevent spoofing.
-- All clients are maintained in an internal map with their last known position and activity timestamp.
-
-#### ✅ Tested functionality
-- Valid client handshake and subsequent updates
-- Invalid client ID with no handshake
-- Valid client ID trying to spoof from another IP is dropped by the server
-
----
-
-### Phase 3: Game Lifecycle Management
-
-#### 3.1 GameManager Integration
-- Introduced `GameManager` to manage the game state lifecycle.
-- States: `WAITING`, `STARTED`, `ENDED`
-- Clients can only join in the `WAITING` state.
-- Game starts when max players are reached or wait time expires.
-
-#### 3.2 Server Refactoring
-- All client handling logic moved into `GameManager::handleMessage()`
-- Server delegates state broadcasting to `GameManager::broadcastToAll()`
-- Game state updates tracked via `GameManager::update()` every tick
-
-#### 📦 Broadcast Format
+```bash
+cd test
+python3 threaded_stress_test.py --clients 100 --duration 10
 ```
-GAME:<state>|ID1:X1:Y1;ID2:X2:Y2;...
-```
-
-#### 🧱 Server Architecture Diagram
-```
-+------------------------+
-|      Server Main       |
-|    (server.cpp)        |
-+-----------+------------+
-            |
-            v
-+------------------------+
-|     GameManager        |
-+-----------+------------+
-            |
-            v
-+------------------------+
-|    ClientManager       |
-+------------------------+
-```
-
-- `Server` runs the loop, delegates message handling to `GameManager`
-- `GameManager` manages state transitions and delegates to `ClientManager`
-- `ClientManager` handles client registry and state
-
----
-
-### Phase 3.5: Game Lifecycle Improvements: keep-alive and refactoring
-
-#### 3.1 GameManager Updates
-- States: `UNKNOWN`, `WAITING`, `STARTED`, `ENDED`
-- Game starts when max players joined or wait timeout hits.
-- Game ends if players drop below `MIN_PLAYERS` during play.
-
-#### 3.2 Client Keep-Alive
-- During `WAITING`, clients send `PING:<id>` to remain active.
-- Server resets inactivity timer based on `PING` or `UPDATE`.
-
-#### 3.3 Server Refactoring
-- `server.cpp` delegates everything to `GameManager::handleMessage()`.
-- Broadcasts done via `GameManager::broadcastToAll()`.
-- Prunes inactive clients every update tick.
-
-#### 3.4 General Refactoring
-- added `common/config.h` to tweak game parameters.
-
----
-
-## 🛣️ Next Steps
-- Implement player actions like shooting
-- Handle disconnections / timeouts
-- Support game over and reset states
-
----
