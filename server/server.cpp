@@ -1,78 +1,88 @@
+/* server.cpp */
+
 #include <iostream>
-#include <unistd.h>
+#include <string>
 #include <cstring>
+#include <unistd.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
 #include <chrono>
 
 #include "client_manager.h"
 #include "utils.h"
 
 #define PORT 9000
-#define MAXLINE 1024
+#define BUFFER_SIZE 1024
+#define BROADCAST_INTERVAL_MS 100
 
 int main() {
     int sockfd;
-    char buffer[MAXLINE];
-    struct sockaddr_in servaddr, cliaddr;
+    sockaddr_in server_addr, client_addr;
+    char buffer[BUFFER_SIZE];
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-        perror("socket creation failed");
-        exit(EXIT_FAILURE);
+        perror("Socket creation failed");
+        return 1;
     }
 
-    memset(&servaddr, 0, sizeof(servaddr));
-    memset(&cliaddr, 0, sizeof(cliaddr));
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(PORT);
 
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(PORT);
-
-    if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-        perror("bind failed");
-        exit(EXIT_FAILURE);
+    if (bind(sockfd, (const sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Bind failed");
+        close(sockfd);
+        return 1;
     }
 
-    std::cout << "[START] UDP server running on port " << PORT << "\n";
+    std::cout << "[START] UDP server running on port " << PORT << std::endl;
 
     ClientManager manager;
+    auto last_broadcast_time = std::chrono::steady_clock::now();
 
     while (true) {
-        socklen_t len = sizeof(cliaddr);
-        int n = recvfrom(sockfd, buffer, MAXLINE, 0, (struct sockaddr *)&cliaddr, &len);
-        if (n < 0) {
-            perror("recvfrom failed");
-            continue;
-        }
-        buffer[n] = '\0';
+        socklen_t len = sizeof(client_addr);
+        ssize_t n = recvfrom(sockfd, buffer, BUFFER_SIZE - 1, MSG_DONTWAIT,
+                             (sockaddr*)&client_addr, &len);
 
-        std::string msg(buffer);
-        std::string senderKey = manager.getClientKey(cliaddr);
-        auto now = std::chrono::steady_clock::now();
+        if (n > 0) {
+            buffer[n] = '\0';
+            std::string msg(buffer);
+            std::string ip_port = manager.getClientKey(client_addr);
 
-        if (msg == "HELLO") {
-            if (!manager.isKnown(senderKey)) {
-                int assignedId = manager.registerClient(cliaddr);
-                std::string response = "WELCOME:" + std::to_string(assignedId);
-                sendto(sockfd, response.c_str(), response.length(), 0,
-                       (const struct sockaddr *)&cliaddr, sizeof(cliaddr));
-                std::cout << "[HANDSHAKE] New client " << senderKey
-                          << " assigned ID " << assignedId << "\n";
+            if (msg == "HELLO") {
+                if (!manager.isKnown(ip_port)) {
+                    int new_id = manager.registerClient(client_addr);
+                    std::string welcome = "WELCOME:" + std::to_string(new_id);
+                    sendto(sockfd, welcome.c_str(), welcome.size(), 0,
+                           (const sockaddr*)&client_addr, sizeof(client_addr));
+                    std::cout << "[HANDSHAKE] New client " << ip_port << " assigned ID " << new_id << std::endl;
+                } else {
+                    std::cout << "[HANDSHAKE] Duplicate HELLO from " << ip_port << std::endl;
+                }
+            } else if (msg.rfind("UPDATE:", 0) == 0) {
+                int id, x, y;
+                if (manager.parseUpdateMessage(msg, id, x, y)) {
+                    if (manager.validateClient(id, ip_port)) {
+                        manager.updateClientPosition(id, x, y);
+                        std::cout << "[UPDATE] Client " << id << " at (" << x << ", " << y << ")" << std::endl;
+                    } else {
+                        std::cout << "[DROP] ID mismatch or unknown client " << ip_port << std::endl;
+                    }
+                } else {
+                    std::cout << "[WARN] Malformed UPDATE message: " << msg << std::endl;
+                }
             } else {
-                std::cout << "[HANDSHAKE] Duplicate HELLO from " << senderKey << "\n";
+                std::cout << "[RECV] Unknown message from " << ip_port << ": " << msg << std::endl;
             }
-            continue;
         }
 
-        if (!manager.isKnown(senderKey)) {
-            std::cout << "[DROP] Message from unknown client " << senderKey << ": " << msg << "\n";
-            continue;
+        auto now = std::chrono::steady_clock::now();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_broadcast_time).count() >= BROADCAST_INTERVAL_MS) {
+            std::string state_packet = manager.buildStatePacket();
+            manager.broadcastToAll(sockfd, state_packet);
+            last_broadcast_time = now;
         }
-
-        Client &c = manager.getClient(senderKey);
-        c.last_seen = now;
-
-        sendto(sockfd, buffer, n, 0, (const struct sockaddr *)&cliaddr, sizeof(cliaddr));
     }
 
     close(sockfd);
