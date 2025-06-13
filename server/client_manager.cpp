@@ -1,9 +1,11 @@
 #include "client_manager.h"
 #include "utils.h"
-#include "client_manager.h"
+#include "../common/config.h"
+#include <iostream>
 #include <sstream>
 #include <vector>
 #include <unistd.h>
+#include <chrono>
 #include <cstring>
 
 int ClientManager::registerClient(const sockaddr_in& addr) {
@@ -84,5 +86,21 @@ void ClientManager::broadcastToAll(int sockfd, const std::string& msg) const {
     for (const auto& [_, client] : clients) {
         sendto(sockfd, msg.c_str(), msg.size(), 0,
                (const struct sockaddr*)&client.addr, sizeof(client.addr));
+    }
+}
+
+
+
+void ClientManager::pruneInactiveClients() {
+    auto now = std::chrono::steady_clock::now();
+    for (auto it = clients.begin(); it != clients.end(); ) {
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - it->second.last_seen);
+        if (duration.count() > CLIENT_TIMEOUT_MS) {
+            std::cout << "[INFO] Dropping inactive client " << it->second.id << std::endl;
+            it = clients.erase(it);
+        } else {
+            ++it;
+        }
     }
 }

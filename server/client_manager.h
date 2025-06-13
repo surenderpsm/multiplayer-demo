@@ -111,6 +111,14 @@ public:
         return clients.size();
     }
 
+    /**
+     * @brief Removes clients that have not sent updates within the timeout period.
+     * 
+     * Cleans up inactive clients to free resources and maintain accurate state.
+     */
+    void pruneInactiveClients();
+
+
 private:
     std::unordered_map<std::string, Client> clients; ///< Map from IP:Port to client struct.
     int nextClientId = 1; ///< Auto-incremented client ID generator.
