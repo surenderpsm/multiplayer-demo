@@ -5,22 +5,38 @@
 #include <arpa/inet.h>
 #include <thread>
 #include <chrono>
+#include <atomic>
 
-#define SERVER_IP "127.0.0.1"
+#include "../generated/game.pb.h"
+#include "../common/config.h"
 #define SERVER_PORT 9000
+#define BUFFER_SIZE 1024
 
-enum class GameState {
-    UNKNOWN,
-    WAITING,
-    STARTED,
-    ENDED
-};
+std::atomic<GameState> currentState(GameState::UNKNOWN);
+
+void receiverThread(int sockfd, sockaddr_in& recvaddr, socklen_t& addr_len) {
+    char buffer[BUFFER_SIZE];
+    while (true) {
+        ssize_t r = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (sockaddr*)&recvaddr, &addr_len);
+        if (r > 0) {
+            Packet incoming;
+            if (incoming.ParseFromArray(buffer, r) && incoming.has_state_packet()) {
+                const auto& sp = incoming.state_packet();
+                currentState.store(sp.state());
+                std::cout << "[STATE] Tick: " << sp.tick() << ", Players: " << sp.players_size() << "\n";
+                for (const auto& p : sp.players()) {
+                    std::cout << " - Player " << p.id() << ": (" << p.x() << ", " << p.y() << ")\n";
+                }
+            }
+        }
+    }
+}
 
 int main() {
     int sockfd;
     sockaddr_in servaddr{}, recvaddr{};
     socklen_t addr_len = sizeof(recvaddr);
-    char buffer[1024];
+    char buffer[BUFFER_SIZE];
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
         perror("socket creation failed");
@@ -31,62 +47,44 @@ int main() {
     servaddr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &servaddr.sin_addr);
 
-    // Step 1: Send HELLO
-    std::string hello = "HELLO";
-    sendto(sockfd, hello.c_str(), hello.size(), 0, (const sockaddr*)&servaddr, sizeof(servaddr));
+    // Send HELLO packet
+    Packet hello_pkt;
+    hello_pkt.mutable_hello();
+    std::string data;
+    hello_pkt.SerializeToString(&data);
+    sendto(sockfd, data.data(), data.size(), 0, (const sockaddr*)&servaddr, sizeof(servaddr));
 
-    // Step 2: Wait for WELCOME response
-    ssize_t n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0, (sockaddr*)&recvaddr, &addr_len);
-    if (n <= 0) {
-        std::cerr << "No response from server\n";
+    // Receive WELCOME
+    ssize_t n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, (sockaddr*)&recvaddr, &addr_len);
+    Packet p;
+    if (!p.ParseFromArray(buffer, n) || !p.has_welcome()) {
+        std::cerr << "Unexpected or malformed welcome packet\n";
         return 1;
     }
-    buffer[n] = '\0';
-    std::string response(buffer);
-    std::cout << "[RECV] " << response << "\n";
+    int client_id = p.welcome().id();
+    std::cout << "[WELCOME] Assigned ID: " << client_id << "\n";
 
-    int client_id = -1;
-    if (response.rfind("WELCOME:", 0) == 0) {
-        client_id = std::stoi(response.substr(8));
-    } else {
-        std::cerr << "Unexpected handshake response\n";
-        return 1;
-    }
-
-    // Step 3: Periodically send updates
     int x = 0, y = 0;
-    GameState currentState = GameState::UNKNOWN;
+    std::thread(receiverThread, sockfd, std::ref(recvaddr), std::ref(addr_len)).detach();
 
     while (true) {
-        // Check for incoming message (non-blocking)
-        ssize_t r = recvfrom(sockfd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT, (sockaddr*)&recvaddr, &addr_len);
-        if (r > 0) {
-            buffer[r] = '\0';
-            std::string msg(buffer);
-            std::cout << "[RECV] " << msg << "\n";
-
-            if (msg.rfind("GAME:", 0) == 0) {
-                std::string state_str = msg.substr(5, msg.find('|') - 5);
-                if (state_str == "WAITING") currentState = GameState::WAITING;
-                else if (state_str == "STARTED") currentState = GameState::STARTED;
-                else if (state_str == "ENDED") currentState = GameState::ENDED;
-                else currentState = GameState::UNKNOWN;
-            }
-        }
-
-        std::string packet;
-        if (currentState == GameState::STARTED) {
-            packet = "UPDATE:" + std::to_string(client_id) + ":" + std::to_string(x) + ":" + std::to_string(y);
+        Packet outgoing;
+        if (currentState.load() == GameState::STARTED) {
+            auto* update = outgoing.mutable_client_update();
+            update->set_id(client_id);
+            update->set_x(x);
+            update->set_y(y);
             x += 5;
             y += 5;
         } else {
-            packet = "PING:" + std::to_string(client_id);
+            outgoing.mutable_ping()->set_id(client_id);
         }
 
-        sendto(sockfd, packet.c_str(), packet.size(), 0, (const sockaddr*)&servaddr, sizeof(servaddr));
+        std::string out_data;
+        outgoing.SerializeToString(&out_data);
+        sendto(sockfd, out_data.data(), out_data.size(), 0, (const sockaddr*)&servaddr, sizeof(servaddr));
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-
 
     close(sockfd);
     return 0;
