@@ -28,22 +28,6 @@ public:
      */
     GameState getState() const;
 
-    /**
-     * @brief Returns a string representation of the current game state.
-     */
-    std::string getStateString() const;
-
-    /**
-     * @brief Handles an incoming message from a client.
-     * 
-     * @param msg The raw message string
-     * @param client_addr The client's socket address
-     * @return Optional response string to send back to the client
-     */
-    std::optional<std::string> handleMessage(
-        const std::string& msg,
-        const sockaddr_in& client_addr
-    );
 
     /**
      * @brief Updates the internal game state. Should be called each tick.
@@ -61,49 +45,7 @@ public:
      */
     bool isGameRunning() const;
 
-    /**
-     * @brief Sends the current game state and all client positions
-     *        to all connected clients.
-     * 
-     * @param sockfd The UDP socket file descriptor to send from
-     */
-    // void broadcastToAll(int sockfd) {
-    //     std::string packet = "GAME:" + getStateString() +
-    //     ";TICK=" + std::to_string(tickCounter) +
-    //     "|" + clientManager.buildStatePacket();
-
-    //     clientManager.broadcastToAll(sockfd, packet);
-    // }
-
-    void broadcastToAll(int sockfd) {
-        Packet wrapper;
-        StatePacket* sp = wrapper.mutable_state_packet();
-        sp->set_state(static_cast<::GameState>(state));
-        sp->set_tick(tickCounter);
-
-        for (const auto& [_, client] : clientManager.getClients()) {
-            Player* p = sp->add_players();
-            p->set_id(client.id);
-            p->set_x(client.x);
-            p->set_y(client.y);
-        }
-
-
-       std::string binary;
-        wrapper.SerializeToString(&binary);
-        clientManager.broadcastBinary(sockfd, binary);
-
-        // Send state packet to local viewer GUI
-        sockaddr_in gui_addr{};
-        gui_addr.sin_family = AF_INET;
-        gui_addr.sin_port = htons(9999); // Must match Python GUI's UDP_PORT
-        inet_pton(AF_INET, "127.0.0.1", &gui_addr.sin_addr);
-
-        sendto(sockfd, binary.data(), binary.size(), 0,
-            (sockaddr*)&gui_addr, sizeof(gui_addr));
-
-    }
-
+    void broadcastToAll(int sockfd);
 
     void handleProtobufMessage(const Packet& packet, const sockaddr_in& client_addr, int sockfd);
 

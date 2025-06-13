@@ -49,30 +49,6 @@ public:
     std::string getClientKey(const sockaddr_in& addr) const;
 
     /**
-     * @brief Parses an update message into its components.
-     * 
-     * Expected format: "UPDATE:<id>:<x>:<y>"
-     * 
-     * @param msg The raw message.
-     * @param id Output parameter for extracted client ID.
-     * @param x Output parameter for X position.
-     * @param y Output parameter for Y position.
-     * @return true if parsing succeeded, false if malformed.
-     */
-    bool parseUpdateMessage(const std::string& msg, int& id, int& x, int& y);
-
-    /**
-     * @brief Parses a ping message to extract the client ID.
-     * 
-     * Expected format: "PING:<id>"
-     * 
-     * @param msg The raw ping message.
-     * @param id Output parameter for extracted client ID.
-     * @return true if parsing succeeded, false if malformed.
-     */
-    bool parsePingMessage(const std::string& msg, int& id);
-
-    /**
      * @brief Validates whether an incoming update is from a known client.
      * 
      * Ensures that the client ID matches the stored IP:Port.
@@ -103,24 +79,6 @@ public:
      */
     void updateClientPosition(int id, int x, int y);
 
-    /**
-     * @brief Builds a state packet representing all active clients.
-     * 
-     * Format: "STATE:<id1>:<x1>:<y1>|<id2>:<x2>:<y2>|..."
-     * 
-     * @return std::string Serialized state string for broadcast.
-     */
-    std::string buildStatePacket() const;
-
-    /**
-     * @brief Broadcasts a message to all currently registered clients.
-     * 
-     * Uses each stored sockaddr_in to send via UDP.
-     * 
-     * @param sockfd The server socket file descriptor.
-     * @param msg The message to send.
-     */
-    void broadcastToAll(int sockfd, const std::string& msg) const;
 
     /**
      * @brief Gets the total number of registered clients.

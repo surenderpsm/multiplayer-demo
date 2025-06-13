@@ -11,79 +11,6 @@ GameState GameManager::getState() const {
     return state;
 }
 
-std::string GameManager::getStateString() const {
-    switch (state) {
-        case GameState::WAITING: return "WAITING";
-        case GameState::STARTED: return "STARTED";
-        case GameState::ENDED: return "ENDED";
-        default: return "UNKNOWN";
-    }
-}
-
-
-std::optional<std::string> GameManager::handleMessage(
-    const std::string& msg,
-    const sockaddr_in& client_addr) {
-    std::string ip_port = this->clientManager.getClientKey(client_addr);    
-    // HELLO handshake
-    if (msg == "HELLO") {
-        if (!canAcceptClients()) {
-            std::cout << "[REJECT] Late HELLO from " << ip_port << std::endl;
-            return "REJECT:GAME_ALREADY_STARTED";
-        }
-
-        if (!this->clientManager.isKnown(ip_port)) {
-            int id = this->clientManager.registerClient(client_addr);
-            std::cout << "[HANDSHAKE] New client " << ip_port << " assigned ID " << id << std::endl;
-            return "WELCOME:" + std::to_string(id);
-        } else {
-            std::cout << "[HANDSHAKE] Duplicate HELLO from " << ip_port << std::endl;
-            return {}; // no response for duplicates
-        }
-    }
-
-    // PING:ID
-    // This is a keep-alive message to ensure the client is still connected during waiting state.
-    if (msg.rfind("PING:", 0) == 0) {
-        int id;
-        if (!this->clientManager.parsePingMessage(msg, id)) {
-            std::cout << "[WARN] Malformed PING from " << ip_port << ": " << msg << std::endl;
-            return std::nullopt; // Ignore malformed pings
-        }
-
-        // Only accept from registered clients
-        if (!clientManager.validateClient(id, ip_port)) {
-            std::cout << "[WARN] Rejected PING from invalid client ID: " << id << "\n";
-            return std::nullopt;
-        }
-
-        clientManager.markSeen(ip_port);
-        return std::nullopt;
-    }
-
-
-    // UPDATE:x,y
-    if (msg.rfind("UPDATE:", 0) == 0) {
-        if (state != GameState::STARTED) {
-            return std::nullopt; // Ignore updates if game not started
-        }
-        int id, x, y;
-        if (this->clientManager.parseUpdateMessage(msg, id, x, y)) {
-            if (this->clientManager.validateClient(id, ip_port)) {
-                this->clientManager.updateClientPosition(id, x, y);
-                std::cout << "[UPDATE] Client " << id << " at (" << x << ", " << y << ")" << std::endl;
-            } else {
-                std::cout << "[DROP] ID mismatch or unknown client " << ip_port << std::endl;
-            }
-        } else {
-            std::cout << "[WARN] Malformed UPDATE: " << msg << std::endl;
-        }
-        return {}; // No reply to UPDATEs
-    }
-
-    std::cout << "[RECV] Unknown message from " << ip_port << ": " << msg << std::endl;
-    return {};
-}
 
 void GameManager::handleProtobufMessage(const Packet& packet, const sockaddr_in& client_addr, int sockfd) {
     std::string ip_port = clientManager.getClientKey(client_addr);
@@ -204,6 +131,35 @@ void GameManager::update() {
     }
 }
 
+
+void GameManager::broadcastToAll(int sockfd) {
+    Packet wrapper;
+    StatePacket* sp = wrapper.mutable_state_packet();
+    sp->set_state(static_cast<::GameState>(state));
+    sp->set_tick(tickCounter);
+
+    for (const auto& [_, client] : clientManager.getClients()) {
+        Player* p = sp->add_players();
+        p->set_id(client.id);
+        p->set_x(client.x);
+        p->set_y(client.y);
+    }
+
+
+    std::string binary;
+    wrapper.SerializeToString(&binary);
+    clientManager.broadcastBinary(sockfd, binary);
+
+    // Send state packet to local viewer GUI
+    sockaddr_in gui_addr{};
+    gui_addr.sin_family = AF_INET;
+    gui_addr.sin_port = htons(9999); // Must match Python GUI's UDP_PORT
+    inet_pton(AF_INET, "127.0.0.1", &gui_addr.sin_addr);
+
+    sendto(sockfd, binary.data(), binary.size(), 0,
+        (sockaddr*)&gui_addr, sizeof(gui_addr));
+
+}
 
 bool GameManager::canAcceptClients() const {
     return state == GameState::WAITING;
