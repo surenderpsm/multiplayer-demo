@@ -6,6 +6,10 @@ This project simulates a real-time multiplayer game server using UDP sockets, fo
 
 The implementation is optimized for clarity and performance, using multithreading to handle concurrent client updates and regular broadcasts. A visual GUI was recently added to display live player movements in real time. The server now also supports **authoritative collision detection**, preventing players from overlapping or getting too close.
 
+![alt text](graphs/server-client-log.png)
+
+![alt text ](graphs/gameviz.gif)
+
 ## Architecture
 
 * **Language**: C++ for the server, Python for the stress test clients.
