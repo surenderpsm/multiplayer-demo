@@ -9,6 +9,13 @@
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 9000
 
+enum class GameState {
+    UNKNOWN,
+    WAITING,
+    STARTED,
+    ENDED
+};
+
 int main() {
     int sockfd;
     sockaddr_in servaddr{}, recvaddr{};
@@ -48,21 +55,38 @@ int main() {
 
     // Step 3: Periodically send updates
     int x = 0, y = 0;
-    while (true) {
-        std::string update = "UPDATE:" + std::to_string(client_id) + ":" + std::to_string(x) + ":" + std::to_string(y);
-        sendto(sockfd, update.c_str(), update.size(), 0, (const sockaddr*)&servaddr, sizeof(servaddr));
+    GameState currentState = GameState::UNKNOWN;
 
-        // Listen for state packet
+    while (true) {
+        // Check for incoming message (non-blocking)
         ssize_t r = recvfrom(sockfd, buffer, sizeof(buffer) - 1, MSG_DONTWAIT, (sockaddr*)&recvaddr, &addr_len);
         if (r > 0) {
             buffer[r] = '\0';
-            std::cout << "[STATE] " << buffer << "\n";
+            std::string msg(buffer);
+            std::cout << "[RECV] " << msg << "\n";
+
+            if (msg.rfind("GAME:", 0) == 0) {
+                std::string state_str = msg.substr(5, msg.find('|') - 5);
+                if (state_str == "WAITING") currentState = GameState::WAITING;
+                else if (state_str == "STARTED") currentState = GameState::STARTED;
+                else if (state_str == "ENDED") currentState = GameState::ENDED;
+                else currentState = GameState::UNKNOWN;
+            }
         }
 
-        x += 5;
-        y += 5;
+        std::string packet;
+        if (currentState == GameState::STARTED) {
+            packet = "UPDATE:" + std::to_string(client_id) + ":" + std::to_string(x) + ":" + std::to_string(y);
+            x += 5;
+            y += 5;
+        } else {
+            packet = "PING:" + std::to_string(client_id);
+        }
+
+        sendto(sockfd, packet.c_str(), packet.size(), 0, (const sockaddr*)&servaddr, sizeof(servaddr));
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+
 
     close(sockfd);
     return 0;
