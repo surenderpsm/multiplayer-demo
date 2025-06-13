@@ -8,6 +8,7 @@
 #include <chrono>
 
 #include "game_manager.h"
+#include "../common/config.h"
 #include "utils.h"
 
 #define PORT 9000
@@ -36,7 +37,7 @@ int main() {
     }
 
     std::cout << "[START] UDP server running on port " << PORT << std::endl;
-    GameManager game_manager(4, 15); // 4 players max, 15 seconds wait time
+    GameManager game_manager(MAX_PLAYERS, WAIT_TIME_SEC);
     auto last_broadcast_time = std::chrono::steady_clock::now();
 
     while (true) {
