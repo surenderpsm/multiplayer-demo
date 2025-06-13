@@ -60,7 +60,7 @@ public:
      * @return true if parsing succeeded, false if malformed.
      */
     bool parseUpdateMessage(const std::string& msg, int& id, int& x, int& y);
-    
+
     /**
      * @brief Parses a ping message to extract the client ID.
      * 
@@ -82,6 +82,15 @@ public:
      * @return true if the client is valid and registered.
      */
     bool validateClient(int id, const std::string& ip_port);
+
+    /**
+     * @brief Marks a client as seen by updating its last seen timestamp.
+     * 
+     * This is used to refresh the client's activity status.
+     * 
+     * @param ip_port The IP:Port string identifier of the client.
+     */
+    void markSeen(const std::string& ip_port);
 
     /**
      * @brief Updates the position of a registered client.

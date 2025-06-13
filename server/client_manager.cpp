@@ -70,6 +70,8 @@ bool ClientManager::validateClient(int id, const std::string& ip_port) {
 }
 
 void ClientManager::updateClientPosition(int id, int x, int y) {
+    // @todo: replace with a more efficient search if needed
+    // This is a linear search, but for small client counts it should be fine.
     for (auto& [key, client] : clients) {
         if (client.id == id) {
             client.x = x;
@@ -77,6 +79,12 @@ void ClientManager::updateClientPosition(int id, int x, int y) {
             client.last_seen = std::chrono::steady_clock::now();
             return;
         }
+    }
+}
+
+void ClientManager::markSeen(const std::string& ip_port) {
+    if (isKnown(ip_port)) {
+        clients[ip_port].last_seen = std::chrono::steady_clock::now();
     }
 }
 
