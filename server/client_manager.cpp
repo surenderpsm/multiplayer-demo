@@ -1,5 +1,10 @@
 #include "client_manager.h"
 #include "utils.h"
+#include "client_manager.h"
+#include <sstream>
+#include <vector>
+#include <unistd.h>
+#include <cstring>
 
 int ClientManager::registerClient(const sockaddr_in& addr) {
     std::string key = getClientKey(addr);
@@ -27,4 +32,57 @@ Client& ClientManager::getClient(const std::string& ip_port) {
 
 std::string ClientManager::getClientKey(const sockaddr_in& addr) const {
     return formatSockAddr(addr);
+}
+
+bool ClientManager::parseUpdateMessage(const std::string& msg, int& id, int& x, int& y) {
+    // Format: UPDATE:<id>:<x>:<y>
+    std::istringstream stream(msg);
+    std::string token;
+
+    if (!std::getline(stream, token, ':') || token != "UPDATE") return false;
+    if (!std::getline(stream, token, ':')) return false;
+    id = std::stoi(token);
+    if (!std::getline(stream, token, ':')) return false;
+    x = std::stoi(token);
+    if (!std::getline(stream, token)) return false;
+    y = std::stoi(token);
+
+    return true;
+}
+
+bool ClientManager::validateClient(int id, const std::string& ip_port) {
+    auto it = clients.find(ip_port);
+    return it != clients.end() && it->second.id == id;
+}
+
+void ClientManager::updateClientPosition(int id, int x, int y) {
+    for (auto& [key, client] : clients) {
+        if (client.id == id) {
+            client.x = x;
+            client.y = y;
+            client.last_seen = std::chrono::steady_clock::now();
+            return;
+        }
+    }
+}
+
+std::string ClientManager::buildStatePacket() const {
+    std::ostringstream packet;
+    packet << "STATE:";
+
+    bool first = true;
+    for (const auto& [_, client] : clients) {
+        if (!first) packet << "|";
+        packet << client.id << ":" << client.x << ":" << client.y;
+        first = false;
+    }
+
+    return packet.str();
+}
+
+void ClientManager::broadcastToAll(int sockfd, const std::string& msg) const {
+    for (const auto& [_, client] : clients) {
+        sendto(sockfd, msg.c_str(), msg.size(), 0,
+               (const struct sockaddr*)&client.addr, sizeof(client.addr));
+    }
 }
