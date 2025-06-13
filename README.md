@@ -28,11 +28,11 @@ The server echoes received positions back to each client.
 Planned expansion: rebroadcast all player states to all clients.
 ```
 
-### Phase 2: Client Managment and State Broadcast
+### Phase 2: Client Management and State Broadcast
 
 #### 2.1 Client Registration (Handshake)
-- Clients initiate connection with a `"HELLO"` message.
-- Server responds with a `"WELCOME:<id>"` message assigning a unique client ID.
+- Clients initiate connection with a "HELLO" message.
+- Server responds with a "WELCOME:<id>" message assigning a unique client ID.
 - Clients are tracked internally by their IP:Port and assigned ID.
 
 #### 2.2 Position Updates and Broadcast
@@ -46,9 +46,58 @@ Planned expansion: rebroadcast all player states to all clients.
 - The server discards updates from unregistered clients or mismatched IDs to prevent spoofing.
 - All clients are maintained in an internal map with their last known position and activity timestamp.
 
-#### Tested functionality
+#### ✅ Tested functionality
 - Valid client handshake and subsequent updates
-- Invalid client id with no handshake.
-- a valid client id trying to spoof from another IP is dropped by the server.
+- Invalid client ID with no handshake
+- Valid client ID trying to spoof from another IP is dropped by the server
+
+---
+
+### Phase 3: Game Lifecycle Management
+
+#### 3.1 GameManager Integration
+- Introduced `GameManager` to manage the game state lifecycle.
+- States: `WAITING`, `STARTED`, `ENDED`
+- Clients can only join in the `WAITING` state.
+- Game starts when max players are reached or wait time expires.
+
+#### 3.2 Server Refactoring
+- All client handling logic moved into `GameManager::handleMessage()`
+- Server delegates state broadcasting to `GameManager::broadcastToAll()`
+- Game state updates tracked via `GameManager::update()` every tick
+
+#### 📦 Broadcast Format
+```
+GAME:<state>|ID1:X1:Y1;ID2:X2:Y2;...
+```
+
+#### 🧱 Server Architecture Diagram
+```
++------------------------+
+|      Server Main       |
+|    (server.cpp)        |
++-----------+------------+
+            |
+            v
++------------------------+
+|     GameManager        |
++-----------+------------+
+            |
+            v
++------------------------+
+|    ClientManager       |
++------------------------+
+```
+
+- `Server` runs the loop, delegates message handling to `GameManager`
+- `GameManager` manages state transitions and delegates to `ClientManager`
+- `ClientManager` handles client registry and state
+
+---
+
+## 🛣️ Next Steps
+- Implement player actions like shooting
+- Handle disconnections / timeouts
+- Support game over and reset states
 
 ---
