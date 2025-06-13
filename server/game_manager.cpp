@@ -2,10 +2,8 @@
 #include <iostream>
 
 GameManager::GameManager(int max_players, int wait_time_sec)
-    : state(GameState::WAITING),
-      maxPlayers(max_players),
-      waitTimeSec(wait_time_sec),
-      startTime(std::chrono::steady_clock::now()) {}
+    : maxPlayers(max_players),
+      waitTimeSec(wait_time_sec) {}
 
 GameState GameManager::getState() const {
     return state;
@@ -64,28 +62,47 @@ std::optional<std::string> GameManager::handleMessage(
 
 
 void GameManager::update() {
-    int current_players = this->clientManager.getClientCount();
-    if (current_players < 1) {
-        std::cout << "[WARN] No players connected, cannot start game." << std::endl;
-        return;
-    }
+    clientManager.pruneInactiveClients();
+    int current_players = clientManager.getClientCount();
+
     if (state == GameState::ENDED) {
-        std::cout << "[INFO] Game has ended, no updates allowed." << std::endl;
+        if (lastLoggedState != state) {
+            std::cout << "[INFO] Game has ended, no updates allowed." << std::endl;
+            lastLoggedState = state;
+        }
         return;
     }
+
+    if (current_players < MIN_PLAYERS) {
+        if (lastLoggedState != GameState::WAITING) {
+            std::cout << "[WARN] No players connected, cannot start game." << std::endl;
+            state = GameState::WAITING;
+            startTime = std::chrono::steady_clock::now();
+            lastLoggedState = GameState::WAITING;
+        }
+        return;
+    }
+
     if (state == GameState::STARTED) {
-        std::cout << "[INFO] Game is already running." << std::endl;
+        if (lastLoggedState != state) {
+            std::cout << "[INFO] Game is already running." << std::endl;
+            lastLoggedState = state;
+        }
         return;
     }
+
     auto now = std::chrono::steady_clock::now();
     int elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
 
     if (state == GameState::WAITING) {
-        if (current_players >= maxPlayers || elapsed_sec >= waitTimeSec) {
+        if ((current_players >= maxPlayers) || (elapsed_sec >= waitTimeSec)) {
             state = GameState::STARTED;
+            std::cout << "[INFO] Game has started!" << std::endl;
+            lastLoggedState = state;
         }
     }
 }
+
 
 bool GameManager::canAcceptClients() const {
     return state == GameState::WAITING;

@@ -4,8 +4,9 @@
 #include <string>
 #include <optional>
 #include "client_manager.h"
-
+#include "../common/config.h"
 enum class GameState {
+    UNKNOWN,
     WAITING,
     STARTED,
     ENDED
@@ -37,6 +38,7 @@ public:
 
 private:
     GameState state;
+    GameState lastLoggedState;
     ClientManager clientManager;
     int maxPlayers;
     int waitTimeSec;
