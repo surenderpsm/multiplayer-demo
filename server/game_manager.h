@@ -2,12 +2,12 @@
 #define GAME_MANAGER_H
 
 #include "client_manager.h"
-#include "generated/game.pb.h"
+#include "../generated/game.pb.h"
 #include <chrono>
 
 class GameManager {
 public:
-    GameManager();
+    GameManager(int max_players, int wait_time_sec);
 
     /**
      * Check if the game is currently in the STARTED state.
@@ -48,6 +48,7 @@ private:
     int maxPlayers;               ///< Max allowed players
     int waitTimeSec;              ///< Seconds to wait before game auto-starts
     std::chrono::steady_clock::time_point startTime;
+    GameState lastLoggedState = GameState::UNKNOWN; ///< Last logged state for info messages
 
     ClientManager clientManager;  ///< Tracks all client states and metadata
 };

@@ -1,16 +1,14 @@
 #include "game_manager.h"
 #include <iostream>
+#include <arpa/inet.h>
+#include "../common/config.h"
+
 
 using GameState = ::GameState;
 
 GameManager::GameManager(int max_players, int wait_time_sec)
     : maxPlayers(max_players),
       waitTimeSec(wait_time_sec) {}
-
-GameState GameManager::getState() const {
-    return state;
-}
-
 
 void GameManager::handleProtobufMessage(const Packet& packet, const sockaddr_in& client_addr, int sockfd) {
     std::string ip_port = clientManager.getClientKey(client_addr);
