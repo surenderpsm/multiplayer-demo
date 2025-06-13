@@ -96,10 +96,26 @@ public:
      */
     void pruneInactiveClients();
 
+    /**
+     * Broadcast a Protobuf packet to all registered clients.
+     * @param sockfd UDP socket to send with.
+     * @param data Serialized packet to send.
+     */
     void broadcastBinary(int sockfd, const std::string& data) const;
 
+    /**
+     * Get a read-only reference to the map of connected clients.
+     * @return Map of client ID to ClientInfo.
+     */
     const std::unordered_map<std::string, Client>& getClients() const { return clients; }
-
+    
+    /**
+     * Check if any client is within the given radius of the (x,y) position.
+     * @param x X coordinate.
+     * @param y Y coordinate.
+     * @param radius Distance threshold.
+     * @return true if a collision is detected, false otherwise.
+     */
     bool isCollisionFree(int x, int y, int my_id, int min_distance = 1) const;
 
 private:

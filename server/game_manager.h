@@ -1,62 +1,55 @@
-#pragma once
+#ifndef GAME_MANAGER_H
+#define GAME_MANAGER_H
 
-#include <chrono>
-#include <string>
-#include <optional>
 #include "client_manager.h"
-#include "../common/config.h"
-#include "../generated/game.pb.h"
-#include <arpa/inet.h>
+#include "generated/game.pb.h"
+#include <chrono>
 
-
-/**
- * @brief Manages the overall game lifecycle, including player registration,
- *        state transitions, and game state broadcasting.
- */
 class GameManager {
 public:
+    GameManager();
+
     /**
-     * @brief Constructs a new GameManager instance.
-     * 
-     * @param max_players Maximum number of players allowed before starting
-     * @param wait_time_sec Time to wait before automatically starting game
+     * Check if the game is currently in the STARTED state.
+     * @return true if game is running, false otherwise.
      */
-    GameManager(int max_players, int wait_time_sec);
+    bool isGameRunning() const;
 
     /**
-     * @brief Returns the current game state.
-     */
-    GameState getState() const;
-
-
-    /**
-     * @brief Updates the internal game state. Should be called each tick.
-     * Handles timeouts, transitions, and logs state changes.
-     */
-    void update();
-
-    /**
-     * @brief Returns true if the server is currently accepting new clients.
+     * Determine if new clients can still join the game.
+     * @return true if game is in WAITING state and accepting clients.
      */
     bool canAcceptClients() const;
 
     /**
-     * @brief Returns true if the game is in STARTED state.
+     * Advance the game tick counter and remove inactive clients.
      */
-    bool isGameRunning() const;
+    void update();
 
+    /**
+     * Broadcast the full game state to all connected clients.
+     * Uses a StatePacket inside a Protobuf Packet.
+     * @param sockfd UDP socket descriptor used to send data.
+     */
     void broadcastToAll(int sockfd);
 
+    /**
+     * Handle a Protobuf message received from a client.
+     * Performs registration, ping processing, and client updates.
+     * @param packet Parsed Protobuf packet.
+     * @param client_addr The address of the client.
+     * @param sockfd Socket used for sending responses.
+     */
     void handleProtobufMessage(const Packet& packet, const sockaddr_in& client_addr, int sockfd);
 
-
-
 private:
-    GameState state;                    ///< Current state of the game
-    GameState lastLoggedState;         ///< Last logged state to suppress spam logs
-    ClientManager clientManager;       ///< Manages connected clients and their info
-    int maxPlayers;                    ///< Max number of players allowed in game
-    int waitTimeSec;                   ///< Wait duration before starting game
-    std::chrono::steady_clock::time_point startTime; ///< Time when WAITING state began
-    int tickCounter = 0;              ///< Counter for ticks to manage game updates
+    GameState state;               ///< Current game state (WAITING, STARTED, etc.)
+    int tickCounter;               ///< Game tick count
+    int maxPlayers;               ///< Max allowed players
+    int waitTimeSec;              ///< Seconds to wait before game auto-starts
+    std::chrono::steady_clock::time_point startTime;
+
+    ClientManager clientManager;  ///< Tracks all client states and metadata
 };
+
+#endif // GAME_MANAGER_H
