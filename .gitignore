@@ -1,2 +1,5 @@
 # binary directory
 /bin/
+
+# vscode
+.vscode/
