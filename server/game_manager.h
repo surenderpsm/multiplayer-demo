@@ -74,8 +74,11 @@ public:
      * 
      * @param sockfd The UDP socket file descriptor to send from
      */
-    void broadcastToAll(int sockfd) const {
-        std::string packet = "GAME:" + getStateString() + "|" + clientManager.buildStatePacket();
+    void broadcastToAll(int sockfd) {
+        std::string packet = "GAME:" + getStateString() +
+        ";TICK=" + std::to_string(tickCounter) +
+        "|" + clientManager.buildStatePacket();
+
         clientManager.broadcastToAll(sockfd, packet);
     }
 
@@ -86,4 +89,5 @@ private:
     int maxPlayers;                    ///< Max number of players allowed in game
     int waitTimeSec;                   ///< Wait duration before starting game
     std::chrono::steady_clock::time_point startTime; ///< Time when WAITING state began
+    int tickCounter = 0;              ///< Counter for ticks to manage game updates
 };

@@ -55,7 +55,7 @@ std::optional<std::string> GameManager::handleMessage(
             return std::nullopt;
         }
 
-        clientManager.markSeen(ip_port); // <-- you’ll need to add this method
+        clientManager.markSeen(ip_port);
         return std::nullopt;
     }
 
@@ -85,6 +85,7 @@ std::optional<std::string> GameManager::handleMessage(
 
 
 void GameManager::update() {
+    tickCounter++;
     // --- Step 1: Prune inactive clients and count current ones ---
     clientManager.pruneInactiveClients();
     int current_players = clientManager.getClientCount();
@@ -138,6 +139,7 @@ void GameManager::update() {
     if (state == GameState::WAITING) {
         if ((current_players >= maxPlayers) || (elapsed_sec >= waitTimeSec)) {
             state = GameState::STARTED;
+            tickCounter = 0; // Reset tick counter on start
             std::cout << "[INFO] Game has started!" << std::endl;
             lastLoggedState = state;
         }
