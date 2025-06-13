@@ -60,6 +60,17 @@ public:
      * @return true if parsing succeeded, false if malformed.
      */
     bool parseUpdateMessage(const std::string& msg, int& id, int& x, int& y);
+    
+    /**
+     * @brief Parses a ping message to extract the client ID.
+     * 
+     * Expected format: "PING:<id>"
+     * 
+     * @param msg The raw ping message.
+     * @param id Output parameter for extracted client ID.
+     * @return true if parsing succeeded, false if malformed.
+     */
+    bool parsePingMessage(const std::string& msg, int& id);
 
     /**
      * @brief Validates whether an incoming update is from a known client.

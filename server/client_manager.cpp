@@ -36,6 +36,18 @@ std::string ClientManager::getClientKey(const sockaddr_in& addr) const {
     return formatSockAddr(addr);
 }
 
+bool ClientManager::parsePingMessage(const std::string& msg, int& id) {
+    // Format: PING:<id>
+    std::istringstream stream(msg);
+    std::string token;
+
+    if (!std::getline(stream, token, ':') || token != "PING") return false;
+    if (!std::getline(stream, token, ':')) return false;
+    id = std::stoi(token);
+
+    return true;
+}
+
 bool ClientManager::parseUpdateMessage(const std::string& msg, int& id, int& x, int& y) {
     // Format: UPDATE:<id>:<x>:<y>
     std::istringstream stream(msg);
