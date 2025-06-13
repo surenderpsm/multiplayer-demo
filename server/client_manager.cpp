@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <chrono>
 #include <cstring>
+#include <cmath>
 
 int ClientManager::registerClient(const sockaddr_in& addr) {
     std::string key = getClientKey(addr);
@@ -108,6 +109,26 @@ void ClientManager::broadcastToAll(int sockfd, const std::string& msg) const {
                (const struct sockaddr*)&client.addr, sizeof(client.addr));
     }
 }
+
+void ClientManager::broadcastBinary(int sockfd, const std::string& data) const {
+    for (const auto& [_, client] : clients) {
+        sendto(sockfd, data.data(), data.size(), 0,
+               (const struct sockaddr*)&client.addr, sizeof(client.addr));
+    }
+}
+
+
+bool ClientManager::isCollisionFree(int x, int y, int my_id, int min_distance) const {
+    for (const auto& [_, client] : clients) {
+        if (client.id == my_id) continue;
+        int dx = client.x - x;
+        int dy = client.y - y;
+        double distance = std::sqrt(dx * dx + dy * dy);
+        if (distance < min_distance) return false;
+    }
+    return true;
+}
+
 
 
 

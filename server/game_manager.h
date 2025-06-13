@@ -5,16 +5,9 @@
 #include <optional>
 #include "client_manager.h"
 #include "../common/config.h"
+#include "../generated/game.pb.h"
+#include <arpa/inet.h>
 
-/**
- * @brief Represents the various states the game can be in.
- */
-enum class GameState {
-    UNKNOWN,  ///< Initial uninitialized state
-    WAITING,  ///< Waiting for players to join
-    STARTED,  ///< Game is in progress
-    ENDED     ///< Game has concluded
-};
 
 /**
  * @brief Manages the overall game lifecycle, including player registration,
@@ -74,13 +67,47 @@ public:
      * 
      * @param sockfd The UDP socket file descriptor to send from
      */
-    void broadcastToAll(int sockfd) {
-        std::string packet = "GAME:" + getStateString() +
-        ";TICK=" + std::to_string(tickCounter) +
-        "|" + clientManager.buildStatePacket();
+    // void broadcastToAll(int sockfd) {
+    //     std::string packet = "GAME:" + getStateString() +
+    //     ";TICK=" + std::to_string(tickCounter) +
+    //     "|" + clientManager.buildStatePacket();
 
-        clientManager.broadcastToAll(sockfd, packet);
+    //     clientManager.broadcastToAll(sockfd, packet);
+    // }
+
+    void broadcastToAll(int sockfd) {
+        Packet wrapper;
+        StatePacket* sp = wrapper.mutable_state_packet();
+        sp->set_state(static_cast<::GameState>(state));
+        sp->set_tick(tickCounter);
+
+        for (const auto& [_, client] : clientManager.getClients()) {
+            Player* p = sp->add_players();
+            p->set_id(client.id);
+            p->set_x(client.x);
+            p->set_y(client.y);
+        }
+
+
+       std::string binary;
+        wrapper.SerializeToString(&binary);
+        clientManager.broadcastBinary(sockfd, binary);
+
+        // Send state packet to local viewer GUI
+        sockaddr_in gui_addr{};
+        gui_addr.sin_family = AF_INET;
+        gui_addr.sin_port = htons(9999); // Must match Python GUI's UDP_PORT
+        inet_pton(AF_INET, "127.0.0.1", &gui_addr.sin_addr);
+
+        sendto(sockfd, binary.data(), binary.size(), 0,
+            (sockaddr*)&gui_addr, sizeof(gui_addr));
+
     }
+
+
+    void handleProtobufMessage(const Packet& packet, const sockaddr_in& client_addr, int sockfd);
+
+
 
 private:
     GameState state;                    ///< Current state of the game

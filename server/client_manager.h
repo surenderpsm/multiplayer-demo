@@ -138,6 +138,11 @@ public:
      */
     void pruneInactiveClients();
 
+    void broadcastBinary(int sockfd, const std::string& data) const;
+
+    const std::unordered_map<std::string, Client>& getClients() const { return clients; }
+
+    bool isCollisionFree(int x, int y, int my_id, int min_distance = 1) const;
 
 private:
     std::unordered_map<std::string, Client> clients; ///< Map from IP:Port to client struct.

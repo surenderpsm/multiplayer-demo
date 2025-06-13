@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+enum GameState {
+  UNKNOWN = 0; ///< Initial uninitialized state
+  WAITING = 1; ///< Waiting for players to join
+  STARTED = 2; ///< Game is in progress
+  ENDED = 3; ///< Game has concluded
+}
+
+message Player {
+  int32 id = 1;
+  int32 x = 2;
+  int32 y = 3;
+}
+
+// Client → Server
+message Hello {}
+message Ping {
+  int32 id = 1;
+}
+message ClientUpdate {
+  int32 id = 1;
+  int32 x = 2;
+  int32 y = 3;
+}
+
+// Server → Client
+message Welcome {
+  int32 id = 1;
+}
+message StatePacket {
+  GameState state = 1;
+  int32 tick = 2;
+  repeated Player players = 3;
+}
+
+// Wrapper packet for routing
+message Packet {
+  oneof payload {
+    Hello hello = 1;
+    Ping ping = 2;
+    ClientUpdate client_update = 3;
+    Welcome welcome = 4;
+    StatePacket state_packet = 5;
+  }
+}

@@ -1,6 +1,8 @@
 #include "game_manager.h"
 #include <iostream>
 
+using GameState = ::GameState;
+
 GameManager::GameManager(int max_players, int wait_time_sec)
     : maxPlayers(max_players),
       waitTimeSec(wait_time_sec) {}
@@ -82,6 +84,62 @@ std::optional<std::string> GameManager::handleMessage(
     std::cout << "[RECV] Unknown message from " << ip_port << ": " << msg << std::endl;
     return {};
 }
+
+void GameManager::handleProtobufMessage(const Packet& packet, const sockaddr_in& client_addr, int sockfd) {
+    std::string ip_port = clientManager.getClientKey(client_addr);
+
+    if (packet.has_hello()) {
+        if (!canAcceptClients()) {
+            std::cout << "[REJECT] Late HELLO from " << ip_port << std::endl;
+            return;
+        }
+
+        if (!clientManager.isKnown(ip_port)) {
+            int id = clientManager.registerClient(client_addr);
+            std::cout << "[HANDSHAKE] Registered client " << ip_port << " -> ID " << id << std::endl;
+
+            Packet reply;
+            reply.mutable_welcome()->set_id(id);
+
+            std::string binary;
+            reply.SerializeToString(&binary);
+            sendto(sockfd, binary.data(), binary.size(), 0, (sockaddr*)&client_addr, sizeof(client_addr));
+        }
+
+    } else if (packet.has_ping()) {
+        int id = packet.ping().id();
+
+        if (!clientManager.validateClient(id, ip_port)) {
+            std::cout << "[WARN] Invalid PING from ID=" << id << " at " << ip_port << std::endl;
+            return;
+        }
+
+        clientManager.markSeen(ip_port);
+
+    } else if (packet.has_client_update()) {
+        if (state != GameState::STARTED) return;
+
+        const auto& update = packet.client_update();
+        int id = update.id();
+        int x = update.x();
+        int y = update.y();
+
+        if (clientManager.validateClient(id, ip_port)) {
+            if (clientManager.isCollisionFree(x, y, id, 50)) {
+                clientManager.updateClientPosition(id, x, y);
+                std::cout << "[UPDATE] ID=" << id << " → (" << x << "," << y << ")\n";
+            } else {
+                std::cout << "[BLOCKED] ID=" << id << " attempted to move too close to another player\n";
+            }
+        } else {
+            std::cout << "[DROP] Mismatched update from " << ip_port << std::endl;
+        }
+
+    } else {
+        std::cout << "[WARN] Unknown or empty Packet from " << ip_port << std::endl;
+    }
+}
+
 
 
 void GameManager::update() {

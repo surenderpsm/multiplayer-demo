@@ -1,16 +1,15 @@
-/* server.cpp */
-
 #include <iostream>
 #include <string>
 #include <cstring>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <chrono>
+#include <thread>
 
 #include "game_manager.h"
 #include "../common/config.h"
 #include "utils.h"
-#include <thread>
+#include "../generated/game.pb.h"
 
 #define PORT 9000
 #define BUFFER_SIZE 1024
@@ -49,19 +48,13 @@ int main() {
 
     while (true) {
         socklen_t len = sizeof(client_addr);
-        ssize_t n = recvfrom(sockfd, buffer, BUFFER_SIZE - 1, MSG_DONTWAIT,
+        ssize_t n = recvfrom(sockfd, buffer, BUFFER_SIZE, MSG_DONTWAIT,
                              (sockaddr*)&client_addr, &len);
         if (n > 0) {
-            buffer[n] = '\0';
-            std::string msg(buffer);
-
-            auto response = game_manager.handleMessage(msg, client_addr);
-            if (response.has_value()) {
-                sendto(sockfd, response->c_str(), response->size(), 0,
-                       (const sockaddr*)&client_addr, sizeof(client_addr));
-            }
+            ::Packet p;
+            if (!p.ParseFromArray(buffer, n)) continue;
+            game_manager.handleProtobufMessage(p, client_addr, sockfd);
         }
-    
     }
 
     close(sockfd);
