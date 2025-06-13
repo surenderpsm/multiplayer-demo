@@ -28,5 +28,27 @@ The server echoes received positions back to each client.
 Planned expansion: rebroadcast all player states to all clients.
 ```
 
+### Phase 2: Client Managment and State Broadcast
+
+#### 2.1 Client Registration (Handshake)
+- Clients initiate connection with a `"HELLO"` message.
+- Server responds with a `"WELCOME:<id>"` message assigning a unique client ID.
+- Clients are tracked internally by their IP:Port and assigned ID.
+
+#### 2.2 Position Updates and Broadcast
+- Registered clients periodically send position updates in the format:  
+  `"UPDATE:<id>:<x>:<y>"`
+- The server validates the sender using their IP:Port and assigned ID.
+- Every 100ms, the server broadcasts the global state of all active clients in the format:  
+  `"STATE:<id1>:<x1>:<y1>|<id2>:<x2>:<y2>|..."`
+
+#### 🔐 Packet Validation
+- The server discards updates from unregistered clients or mismatched IDs to prevent spoofing.
+- All clients are maintained in an internal map with their last known position and activity timestamp.
+
+#### Tested functionality
+- Valid client handshake and subsequent updates
+- Invalid client id with no handshake.
+- a valid client id trying to spoof from another IP is dropped by the server.
 
 ---
