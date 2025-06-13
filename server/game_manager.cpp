@@ -62,9 +62,11 @@ std::optional<std::string> GameManager::handleMessage(
 
 
 void GameManager::update() {
+    // --- Step 1: Prune inactive clients and count current ones ---
     clientManager.pruneInactiveClients();
     int current_players = clientManager.getClientCount();
 
+    // --- Step 2: Handle ENDED state (no further updates allowed) ---
     if (state == GameState::ENDED) {
         if (lastLoggedState != state) {
             std::cout << "[INFO] Game has ended, no updates allowed." << std::endl;
@@ -72,7 +74,7 @@ void GameManager::update() {
         }
         return;
     }
-
+    // --- Step 3: Handle client drop below minimum required ---
     if (current_players < MIN_PLAYERS) {
         if (lastLoggedState != GameState::WAITING) {
             std::cout << "[WARN] No players connected, cannot start game." << std::endl;
@@ -82,7 +84,7 @@ void GameManager::update() {
         }
         return;
     }
-
+    // --- Step 4: If game already started, skip transition ---
     if (state == GameState::STARTED) {
         if (lastLoggedState != state) {
             std::cout << "[INFO] Game is already running." << std::endl;
@@ -90,7 +92,7 @@ void GameManager::update() {
         }
         return;
     }
-
+    // --- Step 5: Check if waiting period is over or max players reached ---
     auto now = std::chrono::steady_clock::now();
     int elapsed_sec = std::chrono::duration_cast<std::chrono::seconds>(now - startTime).count();
 
