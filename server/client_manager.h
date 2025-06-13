@@ -102,6 +102,15 @@ public:
      */
     void broadcastToAll(int sockfd, const std::string& msg) const;
 
+    /**
+     * @brief Gets the total number of registered clients.
+     * 
+     * @return int Count of currently registered clients.
+     */
+    int getClientCount() const {
+        return clients.size();
+    }
+
 private:
     std::unordered_map<std::string, Client> clients; ///< Map from IP:Port to client struct.
     int nextClientId = 1; ///< Auto-incremented client ID generator.

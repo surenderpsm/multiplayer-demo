@@ -7,7 +7,7 @@
 #include <arpa/inet.h>
 #include <chrono>
 
-#include "client_manager.h"
+#include "game_manager.h"
 #include "utils.h"
 
 #define PORT 9000
@@ -36,51 +36,30 @@ int main() {
     }
 
     std::cout << "[START] UDP server running on port " << PORT << std::endl;
-
-    ClientManager manager;
+    GameManager game_manager(4, 15); // 4 players max, 15 seconds wait time
     auto last_broadcast_time = std::chrono::steady_clock::now();
 
     while (true) {
         socklen_t len = sizeof(client_addr);
         ssize_t n = recvfrom(sockfd, buffer, BUFFER_SIZE - 1, MSG_DONTWAIT,
                              (sockaddr*)&client_addr, &len);
-
+        game_manager.update();
         if (n > 0) {
             buffer[n] = '\0';
             std::string msg(buffer);
-            std::string ip_port = manager.getClientKey(client_addr);
 
-            if (msg == "HELLO") {
-                if (!manager.isKnown(ip_port)) {
-                    int new_id = manager.registerClient(client_addr);
-                    std::string welcome = "WELCOME:" + std::to_string(new_id);
-                    sendto(sockfd, welcome.c_str(), welcome.size(), 0,
-                           (const sockaddr*)&client_addr, sizeof(client_addr));
-                    std::cout << "[HANDSHAKE] New client " << ip_port << " assigned ID " << new_id << std::endl;
-                } else {
-                    std::cout << "[HANDSHAKE] Duplicate HELLO from " << ip_port << std::endl;
-                }
-            } else if (msg.rfind("UPDATE:", 0) == 0) {
-                int id, x, y;
-                if (manager.parseUpdateMessage(msg, id, x, y)) {
-                    if (manager.validateClient(id, ip_port)) {
-                        manager.updateClientPosition(id, x, y);
-                        std::cout << "[UPDATE] Client " << id << " at (" << x << ", " << y << ")" << std::endl;
-                    } else {
-                        std::cout << "[DROP] ID mismatch or unknown client " << ip_port << std::endl;
-                    }
-                } else {
-                    std::cout << "[WARN] Malformed UPDATE message: " << msg << std::endl;
-                }
-            } else {
-                std::cout << "[RECV] Unknown message from " << ip_port << ": " << msg << std::endl;
+            auto response = game_manager.handleMessage(msg, client_addr);
+            if (response.has_value()) {
+                sendto(sockfd, response->c_str(), response->size(), 0,
+                    (const sockaddr*)&client_addr, sizeof(client_addr));
             }
         }
 
         auto now = std::chrono::steady_clock::now();
         if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_broadcast_time).count() >= BROADCAST_INTERVAL_MS) {
-            std::string state_packet = manager.buildStatePacket();
-            manager.broadcastToAll(sockfd, state_packet);
+
+            game_manager.broadcastToAll(sockfd);
+
             last_broadcast_time = now;
         }
     }
